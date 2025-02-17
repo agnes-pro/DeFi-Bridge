@@ -50,3 +50,46 @@
     btc-provided: uint,
     stable-provided: uint
 })
+
+;; Private Functions
+
+(define-private (validate-price (price uint))
+    (and 
+        (> price u0)
+        (<= price MAX-PRICE)
+    )
+)
+
+(define-private (transfer-balance (amount uint) (sender principal) (recipient principal))
+    (let (
+        (sender-balance (default-to u0 (map-get? balances sender)))
+        (recipient-balance (default-to u0 (map-get? balances recipient)))
+    )
+    (if (>= sender-balance amount)
+        (begin
+            (map-set balances sender (- sender-balance amount))
+            (map-set balances recipient (+ recipient-balance amount))
+            (ok true)
+        )
+        ERR-INSUFFICIENT-BALANCE
+    ))
+)
+
+(define-private (calculate-collateral-ratio (btc-amount uint) (stablecoin-amount uint))
+    (if (is-eq stablecoin-amount u0)
+        PRECISION
+        (let (
+            (btc-value-usd (* btc-amount (var-get oracle-price)))
+            (collateral-ratio (/ (* btc-value-usd u100) stablecoin-amount))
+        )
+        collateral-ratio))
+)
+
+(define-private (check-collateral-requirement (btc-locked uint) (stablecoin-amount uint))
+    (let (
+        (ratio (calculate-collateral-ratio btc-locked stablecoin-amount))
+    )
+    (if (>= ratio MINIMUM-COLLATERAL-RATIO)
+        (ok true)
+        ERR-INSUFFICIENT-COLLATERAL))
+)
